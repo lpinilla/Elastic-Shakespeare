@@ -10,12 +10,12 @@ La primera parte de este ejercicio es descargar e importar los datos de sus obra
 
 Queda en cada uno la forma de consultar la DB, ya sea con curl, la consola de Kibana o algún driver de algún lenguaje de programación. Pero tengan en cuenta que con curl pueden llegar a haber problemas a la hora de hacer queries por los \" \".
 
-1. Descargar los datos: https://raw.githubusercontent.com/glenacota/elastic-training-repo/master/datasets-to-go/shakespeare_dataset.json
+1. Descargar los datos: https://raw.githubusercontent.com/lpinilla/Elastic-Shakespeare/master/shakespeare_dataset.json
 
 2. Hacer un bulk-request:
 
 ```
-curl -XPOST "elasticsearch:9200/shakespeare/_doc/_bulk?pretty" \
+curl -XPOST "localhost:9200/shakespeare/_doc/_bulk?pretty" \
 -H "Content-Type: application/json" --data-binary @path/to/shakespeare_dataset.json
 ```
 
@@ -29,7 +29,7 @@ Primero vamos a testear que haya cargado todos los datos, para eso vamos a conta
 
 Nota: Los índices arrancan en 0.
 
-1. Hacer un count de todos los índices insertados
+#### Hacer un count de todos los índices insertados
 
 `curl -X GET localhost:9200/shakespeare/_count`
 
@@ -39,7 +39,7 @@ y deberíamos obtener:
 {"count":111396,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0}}
 ```
 
-2. Obtener el primer elemento
+#### Consultar datos aleatorios
 
 `curl -x GET localhost:9200/shakespeare/_doc/0?pretty`
 
@@ -120,7 +120,7 @@ Listo. Si estas 3 consultas funcionaron bien, asumimos que tenemos todo el datas
 
 Nunca leí Romeo y Julieta pero podríamos debatir que es una de las obras más conocidas por Shakespeare (Aunque él no escribió la historia sino que hizo la adaptación a teatro, de lo que se dice que fue una historia verdadera).
 
-1. Ver si está la obra
+### Ver si está la obra
 
 Primero que nada, revisemos si está la obra en nuestra base.
 
@@ -128,117 +128,123 @@ Primero que nada, revisemos si está la obra en nuestra base.
 
 Deberíamos recibir algunas entradas, por lo que confirmamos que la obra está presente en la DB.
 
-2. "Oh Romeo.."
+### "O Romeo.."
 
 Me pregunto cuantas veces aparece está esta frase en la obra, sin importar quien lo diga.
 
-Recordemos que el atributo "play_name" nos indica la obra y el atributo "text_entry" nos indica el díalogo de ese personaje.
+Recordemos que el atributo "play_name" nos indica la obra y el atributo "text_entry" nos indica el texto de algún díalogo.
 
-Como Elasticsearch nos ofrece también búsquedas simulares, podemos filtrar algunas respuestas indeseadas incrementando el score, para esto podríamos utilizar un score mínimo de 20.
-
-```
-curl -XGET "http://elasticsearch:9200/_search" -H 'Content-Type: application/json' -d'{  "min_score": 20,    "query": {        "bool": {            "must": [{                "match": { "play_name": "Romeo and Juliet"}            }, {                "match": { "text_entry": "O Romeo"}            }]        }    }}'
-```
-
-Obtenemos como respuesta
+Como Elasticsearch por default nos ofrece también búsquedas simulares, podemos filtrar algunas respuestas indeseadas incrementando el score, para esto podríamos utilizar un score mínimo de 20.
 
 ```
-{
-  "took" : 4,
-  "timed_out" : false,
-  "_shards" : {
-    "total" : 6,
-    "successful" : 6,
-    "skipped" : 0,
-    "failed" : 0
-  },
-  "hits" : {
-    "total" : {
-      "value" : 3,
-      "relation" : "eq"
-    },
-    "max_score" : 23.532429,
-    "hits" : [
-      {
-        "_index" : "shakespeare",
-        "_type" : "_doc",
-        "_id" : "86168",
-        "_score" : 23.532429,
-        "_source" : {
-          "type" : "line",
-          "line_id" : 86169,
-          "play_name" : "Romeo and Juliet",
-          "speech_number" : 4,
-          "line_number" : "2.2.35",
-          "speaker" : "JULIET",
-          "text_entry" : "O Romeo, Romeo! wherefore art thou Romeo?"
-        }
-      },
-      {
-        "_index" : "shakespeare",
-        "_type" : "_doc",
-        "_id" : "86918",
-        "_score" : 22.828098,
-        "_source" : {
-          "type" : "line",
-          "line_id" : 86919,
-          "play_name" : "Romeo and Juliet",
-          "speech_number" : 40,
-          "line_number" : "3.1.117",
-          "speaker" : "BENVOLIO",
-          "text_entry" : "O Romeo, Romeo, brave Mercutios dead!"
-        }
-      },
-      {
-        "_index" : "shakespeare",
-        "_type" : "_doc",
-        "_id" : "87057",
-        "_score" : 22.828098,
-        "_source" : {
-          "type" : "line",
-          "line_id" : 87058,
-          "play_name" : "Romeo and Juliet",
-          "speech_number" : 6,
-          "line_number" : "3.2.43",
-          "speaker" : "Nurse",
-          "text_entry" : "Though heaven cannot: O Romeo, Romeo!"
-        }
-      }
-    ]
-  }
-}
+curl -XGET "http://localhost:9200/_search" -H 'Content-Type: application/json' -d'{  "min_score": 20,    "query": {        "bool": {            "must": [{                "match": { "play_name": "Romeo and Juliet"}            }, {                "match": { "text_entry": "O Romeo"}            }]        }    }}'
 ```
 
 ## Agregaciones
 
-Nota: es importante aclarar que para las funciones de agregación sobre strings, se tiene que utilizar el 'keyword' en vez del valor del atributo. Por ejemplo, en vez de usar "play_name", tenemos que usar "play_name.keyword". Además, podemos usar el atributo "size" en "0" en la query para hacer un análogo a "DISTINCT" en SQL.
+Nota: es importante aclarar que para las funciones de agregación sobre strings, tal vez se tenga que utilizar el 'keyword' en vez del atributo. Por ejemplo, en vez de tener que usar "play_name", tengamos que usar "play_name.keyword". Además, podemos usar el atributo "size" en "0" en la query para hacer parecido a un "DISTINCT" en SQL.
 
-1. Primero vamos a ver cuantas obras tenemos:
+### Primero vamos a ver cuantas obras tenemos en total en la db:
 
-Para esto podemos utilizar el atributo "cardinality"
-
-```
-curl -XGET "http://elasticsearch:9200/shakespeare/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs" : {    "plays": { "cardinality": {"field": "play_name.keyword"} }  }}'
-```
-
-2. Obtener la misma lista pero en orden
-
-Investigar sobre el campo "order" para la función de agregación. Si utilizan "terms", recuerden que por default hay un máximo de elementos que traen los queries, podemos extender el límite utilizando "size: 1000" dentro del elemento "terms".
+Para esto podemos utilizar el comando "cardinality"
 
 ```
-curl -XGET "http://elasticsearch:9200/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {    "plays": {      "terms": {        "field": "play_name.keyword",        "order": { "_key": "asc" },        "size": 1000      }    }  }}'
+curl -XGET "http://localhost:9200/shakespeare/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs" : {    "plays": { "cardinality": {"field": "play_name.keyword"} }  }}'
 ```
 
-3. Obtener las obras con al menos 3900 líneas
+### Obtener la misma lista pero en orden
 
-Investigar el término "min_doc_counts" para la función de agregación. Recuerden el comentario sobre "size" del inciso anterior.
-
-```
-curl -XGET "http://elasticsearch:9200/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {    "plays": {      "terms": {        "field": "play_name.keyword",        "order": { "_key": "asc" },        "size": 1000,        "min_doc_count": 3900      }    }  }}'
-```
-
-4. Cuantos personajes tiene la obra "The Merchant Of Venice" ?
+Investigar sobre el comando "order" para la función de agregación. Si utilizan el comando "terms", recuerden que por default hay un máximo de elementos que traen los queries, podemos extender el límite utilizando "size: 1000" dentro del elemento "terms".
 
 ```
-curl -XGET "http://elasticsearch:9200/shakespeare/_search?q=play_name="Merchant Of Venice"" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {        "actores": {          "terms": {"field": "speaker.keyword"}        }    }}'
+curl -XGET "http://localhost:9200/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {    "plays": {      "terms": {        "field": "play_name.keyword",        "order": { "_key": "asc" },        "size": 1000      }    }  }}'
 ```
+
+### Obtener las obras con al menos 3900 líneas
+
+Investigar el comando "min_doc_counts" para la función de agregación. Recuerden el comentario sobre "size" del inciso anterior.
+
+```
+curl -XGET "http://localhost:9200/_search" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {    "plays": {      "terms": {        "field": "play_name.keyword",        "order": { "_key": "asc" },        "size": 1000,        "min_doc_count": 3900      }    }  }}'
+```
+
+### Cuantos personajes tiene la obra "The Merchant Of Venice" ?
+
+```
+curl -XGET "http://localhost:9200/shakespeare/_search?q=play_name="Merchant Of Venice"" -H 'Content-Type: application/json' -d'{  "size": 0,  "aggs": {        "actores": {          "terms": {"field": "speaker.keyword"}        }    }}'
+```
+
+Finalmente, desde Kibana, los request quedarían:
+
+```
+GET /shakespeare/_doc/0
+
+GET /shakespeare/_doc/73330
+
+GET /shakespeare/_doc/111395
+
+GET /shakespeare/_search?q=play_name="Romeo and Juliet"
+
+GET /_search
+{
+  "min_score": 20,
+    "query": {
+        "bool": {
+            "must": [{
+                "match": { "play_name": "Romeo and Juliet"}
+            }, {
+                "match": { "text_entry": "O Romeo"}
+            }]
+        }
+    }
+}
+
+GET shakespeare/_search
+{
+  "size": 0,
+  "aggs" : {
+    "plays": { "cardinality": {"field": "play_name.keyword"} }
+  }
+}
+
+GET /_search
+{
+  "size": 0,
+  "aggs": {
+    "plays": {
+      "terms": {
+        "field": "play_name.keyword",
+        "order": { "_key": "asc" },
+        "size": 1000
+      }
+    }
+  }
+}
+
+GET /_search
+{
+  "size": 0,
+  "aggs": {
+    "plays": {
+      "terms": {
+        "field": "play_name.keyword",
+        "order": { "_key": "asc" },
+        "size": 1000,
+        "min_doc_count": 3900
+      }
+    }
+  }
+}
+
+
+GET shakespeare/_search?q=play_name="Merchant Of Venice"
+{
+  "size": 0,
+  "aggs": {
+        "actores": {
+          "terms": {"field": "speaker.keyword"}
+        }
+    }
+}
+```
+
